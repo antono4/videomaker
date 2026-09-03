@@ -1,0 +1,6 @@
+# Node / test artifacts (dev only)
+node_modules/
+package-lock.json
+
+# Local server logs
+*.log

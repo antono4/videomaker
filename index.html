@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VideoMaker — Client-Side Narration Video Generator</title>
+<meta name="description" content="MoneyPrinterTurbo-style video maker that runs 100% in your browser: topic/script, canvas scenes, eSpeak TTS, procedural or uploaded BGM, subtitles and WebM export via MediaRecorder.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111'/%3E%3Cpath d='M26 18 L46 32 L26 46 Z' fill='%23ffd166'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">▶</div>
+    <div>
+      <h1>VideoMaker</h1>
+      <p class="tagline">MoneyPrinter-style narration videos, made entirely in your browser</p>
+    </div>
+  </div>
+  <div class="badges">
+    <span class="badge">100% client-side</span>
+    <span class="badge">eSpeak TTS</span>
+    <span class="badge">WebM export</span>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ============ LEFT: CONTROL PANEL ============ -->
+  <section class="panel panel-left">
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="tab-script">1 · Script</button>
+      <button class="tab" data-tab="tab-voice">2 · Voice &amp; Music</button>
+      <button class="tab" data-tab="tab-export">3 · Export</button>
+    </nav>
+
+    <!-- Script tab -->
+    <div class="tab-panel" id="tab-script">
+      <label for="topicInput">Topic</label>
+      <div class="row">
+        <input id="topicInput" type="text" placeholder="e.g. Why cats sleep so much" autocomplete="off">
+        <button id="genScriptBtn" class="btn primary" title="Generate a placeholder script from templates">⚡ Generate script</button>
+      </div>
+      <details class="hint">
+        <summary>How the script generator works</summary>
+        <p>The generator is a <strong>template-based demo</strong> — it weaves your topic into a set of hand-written sentence templates. There is no LLM behind it; for real content, paste your own script and press <em>Apply script</em>. Everything runs in your browser, your text never leaves the machine.</p>
+      </details>
+
+      <label for="scriptInput">Script <span class="muted">(one sentence per scene)</span></label>
+      <textarea id="scriptInput" rows="10" spellcheck="false" placeholder="Paste your script here. Each sentence becomes one scene of the video..."></textarea>
+      <div class="row between">
+        <button id="applyScriptBtn" class="btn">Apply script</button>
+        <span id="sceneCount" class="muted"></span>
+      </div>
+    </div>
+
+    <!-- Voice & music tab -->
+    <div class="tab-panel hidden" id="tab-voice">
+      <h3>Narration</h3>
+      <label class="switch">
+        <input type="checkbox" id="narrationToggle" checked>
+        <span>Text-to-speech narration <span class="muted">(eSpeak via meSpeak)</span></span>
+      </label>
+      <div class="field">
+        <label for="voiceSelect">Voice</label>
+        <select id="voiceSelect">
+          <option value="en/en-us">English (US)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="pitchSlider">Pitch <span class="val" id="pitchVal">50</span></label>
+        <input id="pitchSlider" type="range" min="0" max="99" value="50">
+      </div>
+      <div class="field">
+        <label for="speedSlider">Speed <span class="val" id="speedVal">175</span></label>
+        <input id="speedSlider" type="range" min="80" max="300" value="175">
+      </div>
+      <div class="field">
+        <label for="ttsVol">Narration volume <span class="val" id="ttsVolVal">100%</span></label>
+        <input id="ttsVol" type="range" min="0" max="100" value="100">
+      </div>
+      <div id="ttsStatus" class="statusline">Speech engine: waiting for first play…</div>
+
+      <h3>Background music</h3>
+      <div class="field">
+        <select id="bgmSelect">
+          <option value="none">None</option>
+          <option value="proc">♪ Procedural ambient pad (generated in-browser)</option>
+          <option value="file">Upload audio file…</option>
+        </select>
+        <input type="file" id="bgmFile" class="hidden" accept="audio/*">
+        <div id="bgmInfo" class="muted">No background music selected.</div>
+      </div>
+      <div class="field">
+        <label for="bgmVol">Music volume <span class="val" id="bgmVolVal">25%</span></label>
+        <input id="bgmVol" type="range" min="0" max="100" value="25">
+      </div>
+    </div>
+
+    <!-- Export tab -->
+    <div class="tab-panel hidden" id="tab-export">
+      <h3>Export video</h3>
+      <p class="muted">The video is rendered <strong>in real time</strong> while MediaRecorder captures the canvas and mixed audio. A 60-second video takes about a minute to render — grab a coffee.</p>
+      <div class="field">
+        <label class="switch">
+          <input type="checkbox" id="watermarkToggle" checked>
+          <span>Show "VideoMaker" watermark</span>
+        </label>
+      </div>
+      <dl class="stats">
+        <div><dt>Resolution</dt><dd>1280 × 720 (16:9)</dd></div>
+        <div><dt>Format</dt><dd id="formatInfo">video/webm (best supported codec)</dd></div>
+        <div><dt>Capture</dt><dd>canvas.captureStream + Web Audio mixing</dd></div>
+      </dl>
+      <div class="row">
+        <button id="exportBtn" class="btn primary big">▶ Render WebM video</button>
+        <button id="cancelExportBtn" class="btn hidden">Cancel</button>
+      </div>
+      <div id="exportProgress" class="progress hidden">
+        <div class="progress-track"><div class="progress-fill" id="exportFill"></div></div>
+        <span id="exportLabel">Rendering…</span>
+      </div>
+      <div id="resultBox" class="hidden">
+        <video id="resultVideo" controls playsinline></video>
+        <div class="row between">
+          <a id="downloadLink" class="btn primary" download>⬇ Download .webm</a>
+          <span id="resultMeta" class="muted"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RIGHT: PREVIEW ============ -->
+  <section class="panel panel-right">
+    <div class="stage">
+      <canvas id="canvas" width="1280" height="720"></canvas>
+      <div class="stage-label">Preview</div>
+    </div>
+
+    <div class="transport">
+      <button id="playBtn" class="btn icon" title="Play / Pause preview">▶</button>
+      <div class="timeline" id="timeline" title="Click to seek">
+        <div class="timeline-fill" id="playFill"></div>
+        <div class="scene-ticks" id="sceneTicks"></div>
+      </div>
+      <span id="timeLabel" class="muted mono">0:00 / 0:00</span>
+    </div>
+
+    <div class="scenelist" id="sceneList"></div>
+  </section>
+</main>
+
+<footer class="footer">
+  <span>Open source · Runs offline once loaded · Speech by <a href="https://www.masswerk.at/mespeak" target="_blank" rel="noopener">meSpeak</a> (eSpeak, GPL)</span>
+  <span id="whisper" class="mono"></span>
+</footer>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="vendor/mespeak/mespeak.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
