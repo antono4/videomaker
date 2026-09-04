@@ -85,7 +85,7 @@
   function cap(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
 
   function generateScript(topic) {
-    const t = String(topic | '').trim().replace(/[.!?。！？]+$/,'');
+    const t = String(topic || '').trim().replace(/[.!?。！？]+$/,'');
     if (!t) return '';
     return [
       pick(HOOKS)(t),
@@ -421,7 +421,7 @@ const grd = ctx.createRadialGradient(cx, cy, 40, cx, cy, Math.max(W, H) * 0.75 *
   }
 
   function wrapText(text, maxWidth) {
-    const words = String(text).split(/s+/);
+    const words = String(text).split(/\s+/);
     const lines = [];
     let cur = '';
     words.forEach((wd) => {
@@ -494,10 +494,10 @@ const grd = ctx.createRadialGradient(cx, cy, 40, cx, cy, Math.max(W, H) * 0.75 *
     ctx.textAlign = 'left';
     ctx.fillStyle = 'rgba(255,255,255,0.85)';
     ctx.font = '600 22px Inter, system-ui, sans-serif';
-    ctx.fillText(fmtTime(S.videoT) + ' · Scene ' + (idx + 1) + '/' + S.scenes.length, 30, 58);
+    ctx.fillText(fmtTime(S.videoT) + ' · Scene ' + (idx + 1) + '/' + S.scenes.length, 30, 40);
     ctx.font = '700 26px Inter, system-ui, sans-serif';
     ctx.fillStyle = 'rgba(255,209,102,0.95)';
-    ctx.fillText(title, 30, 58);
+    ctx.fillText(title, 30, 68);
   }
 
   function drawWatermark() {
